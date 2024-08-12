@@ -40,7 +40,7 @@ public class DataCiteDOIProvider extends AbstractDOIProvider {
     private String apiUrl;
     private String username;
     private String password;
-    
+
     private DOIDataCiteRegisterService doiDataCiteRegisterService;
 
     public DataCiteDOIProvider(String id, String label, String providerAuthority, String providerShoulder,
@@ -113,7 +113,7 @@ public class DataCiteDOIProvider extends AbstractDOIProvider {
 
     /**
      * Modifies the DOI metadata for a Dataset
-     * 
+     *
      * @param dvObject the dvObject whose metadata needs to be modified
      * @return the Dataset identifier, or null if the modification failed
      * @throws java.lang.Exception
@@ -248,7 +248,7 @@ public class DataCiteDOIProvider extends AbstractDOIProvider {
      * separate DOIDataCiteRegisterCache. We could also try to get this info from
      * DataCite directly, but it appears to not be in the xml metadata return, so it
      * would require another/different api call (possible ToDo).
-     * 
+     *
      * @param dvObject - Dataset or DataFile
      * @return PID status - NONE, DRAFT, FINDABLE, or REGISTERED
      */
@@ -312,8 +312,8 @@ public class DataCiteDOIProvider extends AbstractDOIProvider {
         }
         return status;
     }
-    
-    
+
+
     @Override
     public boolean updateIdentifier(DvObject dvObject) {
         logger.log(Level.FINE,"updateIdentifierStatus");
