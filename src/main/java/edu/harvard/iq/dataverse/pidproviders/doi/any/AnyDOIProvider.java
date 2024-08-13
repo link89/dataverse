@@ -13,9 +13,12 @@ import edu.harvard.iq.dataverse.DvObject;
 import edu.harvard.iq.dataverse.GlobalId;
 import edu.harvard.iq.dataverse.pidproviders.doi.AbstractDOIProvider;
 
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
@@ -39,6 +42,8 @@ import jakarta.json.bind.JsonbBuilder;
 
 public class AnyDOIProvider extends AbstractDOIProvider {
 
+    private static final Logger logger = Logger.getLogger(AnyDOIProvider.class.getCanonicalName());
+
     public static final String TYPE = "anydoi";
 
     private String anyDoiUrl;
@@ -56,10 +61,10 @@ public class AnyDOIProvider extends AbstractDOIProvider {
                           String anyDoiUrl) {
         super(id, label, providerAuthority, providerShoulder, identifierGenerationStyle, datafilePidFormat, managedList, excludedList);
         this.anyDoiUrl = anyDoiUrl;
+        logger.info("AnyDOIProvider created with url: " + anyDoiUrl);
         context = HttpClientContext.create();
         httpClient = HttpClients.createDefault();
     }
-
 
     @Override
     public boolean alreadyRegistered(GlobalId pid, boolean noProviderDefault) {
@@ -68,13 +73,17 @@ public class AnyDOIProvider extends AbstractDOIProvider {
         }
         boolean alreadyRegistered;
         String identifier = pid.asString();
+        logger.info("Checking if identifier is already registered: " + identifier);
         try {
             // send a http get request to /doi/{identifier} to check if the identifier is already registered
             // return true if the status code is 404
-            HttpGet httpGet = new HttpGet(anyDoiUrl + "/doi/" + identifier);
+            String encodedIdentifier = URLEncoder.encode(identifier, "UTF-8");
+            logger.info("Encoded identifier: " + encodedIdentifier);
+            HttpGet httpGet = new HttpGet(anyDoiUrl + "/doi/" + encodedIdentifier);
             HttpResponse response = httpClient.execute(httpGet, context);
             alreadyRegistered = response.getStatusLine().getStatusCode() != 404;
         } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error checking if identifier is already registered", e);
             return false;
         }
         return alreadyRegistered;
