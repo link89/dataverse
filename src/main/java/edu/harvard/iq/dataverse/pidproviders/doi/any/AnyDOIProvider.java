@@ -21,10 +21,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.http.HttpResponse;
+
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -33,6 +34,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.client.HttpClientBuilder;
 
 // import necessary jakarta.json classes to dump hashmap to json
 import jakarta.json.bind.Jsonb;
@@ -116,6 +118,7 @@ public class AnyDOIProvider extends AbstractDOIProvider {
             String body = jsonb.toJson(requestData);
 
             HttpPost httpPost = new HttpPost(anyDoiUrl + "/doi");
+            httpPost.setConfig(getDefaultRequestConfig());
             httpPost.setHeader("Content-Type", "application/json");
             httpPost.setEntity(new StringEntity(body, "utf-8"));
             HttpResponse response = httpClient.execute(httpPost, context);
@@ -163,5 +166,14 @@ public class AnyDOIProvider extends AbstractDOIProvider {
     @Override
     public String getProviderType() {
         return TYPE;
+    }
+
+    RequestConfig getDefaultRequestConfig() {
+        int TIMEOUT_IN_MS = 5000;
+        return RequestConfig.custom()
+                .setConnectTimeout(TIMEOUT_IN_MS)
+                .setConnectionRequestTimeout(TIMEOUT_IN_MS)
+                .setSocketTimeout(TIMEOUT_IN_MS)
+                .build();
     }
 }
