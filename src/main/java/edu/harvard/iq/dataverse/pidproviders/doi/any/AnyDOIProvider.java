@@ -34,7 +34,9 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.apache.http.impl.client.HttpClientBuilder;
+
 
 // import necessary jakarta.json classes to dump hashmap to json
 import jakarta.json.bind.Jsonb;
@@ -82,7 +84,10 @@ public class AnyDOIProvider extends AbstractDOIProvider {
             String encodedIdentifier = URLEncoder.encode(identifier, "UTF-8");
             logger.info("Encoded identifier: " + encodedIdentifier);
             HttpGet httpGet = new HttpGet(anyDoiUrl + "/doi/" + encodedIdentifier);
+            httpGet.setConfig(getDefaultRequestConfig());
             HttpResponse response = httpClient.execute(httpGet, context);
+            String data = EntityUtils.toString(response.getEntity(), "utf-8");
+            EntityUtils.consumeQuietly(response.getEntity());
             alreadyRegistered = response.getStatusLine().getStatusCode() != 404;
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error checking if identifier is already registered", e);
@@ -119,10 +124,12 @@ public class AnyDOIProvider extends AbstractDOIProvider {
 
             HttpPost httpPost = new HttpPost(anyDoiUrl + "/doi");
             httpPost.setConfig(getDefaultRequestConfig());
+
             httpPost.setHeader("Content-Type", "application/json");
             httpPost.setEntity(new StringEntity(body, "utf-8"));
             HttpResponse response = httpClient.execute(httpPost, context);
-            String data = response.getEntity().toString();
+            String data = EntityUtils.toString(response.getEntity(), "utf-8");
+            EntityUtils.consumeQuietly(response.getEntity());
             if (response.getStatusLine().getStatusCode() != 201) {
                 String errMsg = "Response from createIdentifier: " + response.getStatusLine().getStatusCode() + ", " + data;
                 throw new Exception(errMsg);
