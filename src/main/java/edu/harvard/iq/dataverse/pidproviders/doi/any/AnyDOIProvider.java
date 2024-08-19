@@ -13,6 +13,7 @@ import edu.harvard.iq.dataverse.DvObject;
 import edu.harvard.iq.dataverse.GlobalId;
 import edu.harvard.iq.dataverse.pidproviders.doi.AbstractDOIProvider;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -71,27 +73,30 @@ public class AnyDOIProvider extends AbstractDOIProvider {
     }
 
     @Override
-    public boolean alreadyRegistered(GlobalId pid, boolean noProviderDefault) {
+    public boolean alreadyRegistered(GlobalId pid, boolean noProviderDefault) throws UnsupportedEncodingException {
         if (pid == null || pid.asString().isEmpty()) {
             return false;
         }
         boolean alreadyRegistered;
         String identifier = pid.asString();
         logger.info("Checking if identifier is already registered: " + identifier);
+        String encodedIdentifier = URLEncoder.encode(identifier, "UTF-8");
+        logger.info("Encoded identifier: " + encodedIdentifier);
+
+        // TODO: refactor
+        HttpGet httpGet = new HttpGet(anyDoiUrl + "/doi/" + encodedIdentifier);
+        httpGet.setConfig(getDefaultRequestConfig());
         try {
             // send a http get request to /doi/{identifier} to check if the identifier is already registered
             // return true if the status code is 404
-            String encodedIdentifier = URLEncoder.encode(identifier, "UTF-8");
-            logger.info("Encoded identifier: " + encodedIdentifier);
-            HttpGet httpGet = new HttpGet(anyDoiUrl + "/doi/" + encodedIdentifier);
-            httpGet.setConfig(getDefaultRequestConfig());
             HttpResponse response = httpClient.execute(httpGet, context);
             String data = EntityUtils.toString(response.getEntity(), "utf-8");
-            EntityUtils.consumeQuietly(response.getEntity());
             alreadyRegistered = response.getStatusLine().getStatusCode() != 404;
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error checking if identifier is already registered", e);
             return false;
+        } finally {
+            httpGet.releaseConnection();
         }
         return alreadyRegistered;
     }
@@ -112,24 +117,28 @@ public class AnyDOIProvider extends AbstractDOIProvider {
             dvObject = generatePid(dvObject);
         }
         String identifier = getIdentifier(dvObject);
+        logger.info("Creating identifier: " + identifier);
+        String encodedIdentifier = URLEncoder.encode(identifier, "UTF-8");
+        logger.info("Encoded identifier: " + encodedIdentifier);
+
         Map<String, String> metadata = getMetadataForCreateIndicator(dvObject);
-        // TODO: support draft status
+
+        // create json string from identifier, metadata
+        HashMap<String, Object> requestData = new HashMap<>();
+        requestData.put("identifier", identifier);
+        requestData.put("metadata", metadata);
+        Jsonb jsonb = JsonbBuilder.create();
+        String body = jsonb.toJson(requestData);
+
+        HttpPut httpPut = new HttpPut(anyDoiUrl + "/doi/" + encodedIdentifier);
+        httpPut.setConfig(getDefaultRequestConfig());
+
+        httpPut.setHeader("Content-Type", "application/json");
+        httpPut.setEntity(new StringEntity(body, "utf-8"));
+
         try {
-            // create json string from identifier, metadata
-            HashMap<String, Object> requestData = new HashMap<>();
-            requestData.put("identifier", identifier);
-            requestData.put("metadata", metadata);
-            Jsonb jsonb = JsonbBuilder.create();
-            String body = jsonb.toJson(requestData);
-
-            HttpPost httpPost = new HttpPost(anyDoiUrl + "/doi");
-            httpPost.setConfig(getDefaultRequestConfig());
-
-            httpPost.setHeader("Content-Type", "application/json");
-            httpPost.setEntity(new StringEntity(body, "utf-8"));
-            HttpResponse response = httpClient.execute(httpPost, context);
+            HttpResponse response = httpClient.execute(httpPut, context);
             String data = EntityUtils.toString(response.getEntity(), "utf-8");
-            EntityUtils.consumeQuietly(response.getEntity());
             if (response.getStatusLine().getStatusCode() != 201) {
                 String errMsg = "Response from createIdentifier: " + response.getStatusLine().getStatusCode() + ", " + data;
                 throw new Exception(errMsg);
@@ -137,6 +146,8 @@ public class AnyDOIProvider extends AbstractDOIProvider {
             return "OK";
         } catch (Exception e) {
             throw e;
+        } finally {
+            httpPut.releaseConnection();
         }
     }
 
